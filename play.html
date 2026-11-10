@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#1d2030">
+<title>Grammar Fight</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="phone" id="app">
+
+  <section id="p-wait" class="center">
+    <div class="tag">Grammar Fight</div>
+    <h1>Connecting…</h1>
+    <p class="muted" id="waitMsg">Waiting for the teacher to open the game.</p>
+  </section>
+
+  <section id="p-join" class="center hidden">
+    <div class="tag">Grammar Fight</div>
+    <h1>Enter your name</h1>
+    <input id="nameIn" maxlength="14" placeholder="Your name" autocomplete="off">
+    <button class="wide" id="btnJoin">Join the fight 🥊</button>
+  </section>
+
+  <section id="p-running" class="center hidden">
+    <h1>The fight already started</h1>
+    <p class="muted">Watch the board. You can join the next game.</p>
+  </section>
+
+  <section id="p-lobby" class="center hidden">
+    <div class="tag">You're in!</div>
+    <h1 id="lobbyName"></h1>
+    <div class="mini-wrap" style="width:100%" id="lobbyRing"></div>
+    <p class="muted">Wait for the teacher to press PLAY.</p>
+  </section>
+
+  <section id="p-training" class="hidden" style="display:flex;flex-direction:column;gap:14px">
+    <div class="topbar"><span class="t" id="trTimer">3:00</span><span class="s">💪 <span id="trStr">0</span></span></div>
+    <div class="mini-wrap" id="trRing"></div>
+    <div class="q-card" id="trQ"></div>
+    <div class="opts" id="trOpts"></div>
+    <div class="hint">Correct answer = punch the bag = +1 strength</div>
+  </section>
+
+  <section id="p-results" class="center hidden">
+    <div class="tag">Training over</div>
+    <h1>💪 <span id="resStr">0</span></h1>
+    <p id="resRank" class="muted" style="font-size:20px"></p>
+    <p class="muted">Get ready for the DEATHMATCH…</p>
+  </section>
+
+  <section id="p-deathmatch" class="hidden" style="display:flex;flex-direction:column;gap:12px">
+    <div class="topbar"><span class="s">❤️ <span id="dmHp">0</span></span><span class="s">💪 <span id="dmStr">0</span></span></div>
+    <div class="hpbar"><div id="dmHpBar" style="width:100%"></div></div>
+    <div class="dm-wrap" id="dmRingP"></div>
+    <div class="hint" id="dmTarget">Tap a boxer to choose your target</div>
+    <div id="dmAlive">
+      <div class="q-card" id="dmQ"></div>
+      <div class="opts" id="dmOpts" style="margin-top:12px"></div>
+    </div>
+    <div id="dmDead" class="center hidden" style="padding:20px 0">
+      <h1 style="color:var(--red)">KO!</h1>
+      <p class="muted" id="dmDeadMsg">You were knocked out. Watch the board!</p>
+    </div>
+  </section>
+
+  <section id="p-over" class="center hidden">
+    <div style="font-size:70px">🏆</div>
+    <div class="tag">Champion</div>
+    <h1 id="overName" style="font-size:44px;color:var(--orange)"></h1>
+    <p class="muted" id="overMe"></p>
+  </section>
+
+</div>
+<script type="module" src="play.js"></script>
+</body>
+</html>

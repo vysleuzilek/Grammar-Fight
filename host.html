@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grammar Fight – Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="host">
+
+  <!-- LOBBY -->
+  <section id="s-lobby" class="hidden">
+    <div class="lobby-grid">
+      <div class="join-card">
+        <div class="tag">Scan &amp; join</div>
+        <img id="qr" alt="QR code">
+        <div class="url" id="joinUrl"></div>
+      </div>
+      <div class="players-wrap">
+        <div class="tag">Grammar Fight · First Conditional</div>
+        <h1 style="font-size:64px">Waiting for fighters…</h1>
+        <div style="display:flex;align-items:baseline;gap:14px"><span class="count" id="lobbyCount">0</span><span class="muted" style="font-size:24px">players</span></div>
+        <div class="chips" id="chips"></div>
+        <div class="controls" style="margin-top:auto">
+          <select id="trainLen">
+            <option value="120">Training 2 min</option>
+            <option value="180" selected>Training 3 min</option>
+            <option value="240">Training 4 min</option>
+          </select>
+          <button id="btnPlay">▶ PLAY</button>
+          <button class="ghost" id="btnNew">New game</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TRAINING -->
+  <section id="s-training" class="hidden">
+    <header>
+      <div><div class="tag">Round 1 · Training</div><h1>Hit the bag: every correct answer = +1 strength</h1></div>
+      <div style="display:flex;align-items:center;gap:20px"><div class="timer" id="tTimer">3:00</div><button class="ghost" id="btnEndTrain">End now</button></div>
+    </header>
+    <div class="train-grid" id="trainGrid"></div>
+  </section>
+
+  <!-- RESULTS -->
+  <section id="s-results" class="hidden">
+    <header>
+      <div><div class="tag">Training results</div><h1>Who is the strongest?</h1></div>
+      <div class="controls"><span class="muted" id="hpInfo"></span><button id="btnDM">🥊 DEATHMATCH</button></div>
+    </header>
+    <div class="board" id="board"></div>
+  </section>
+
+  <!-- DEATHMATCH -->
+  <section id="s-deathmatch" class="hidden">
+    <header>
+      <div><div class="tag">Round 2 · Deathmatch</div><h1>Correct answer = punch. Wrong answer = miss.</h1></div>
+      <div class="controls"><span class="count" id="aliveCount" style="font-size:44px">0</span><span class="muted">alive</span><button class="ghost" id="btnEndDM">End</button></div>
+    </header>
+    <div class="dm">
+      <div id="dmRing"></div>
+      <div class="feed" id="feed"><div class="tag">Fight log</div></div>
+    </div>
+  </section>
+
+  <div id="winner" class="winner hidden">
+    <div class="belt">🏆</div>
+    <div class="tag">Champion</div>
+    <div class="big" id="winnerName"></div>
+    <div class="controls"><button id="btnLobby">Back to lobby</button></div>
+  </div>
+</div>
+<script type="module" src="host.js"></script>
+</body>
+</html>
