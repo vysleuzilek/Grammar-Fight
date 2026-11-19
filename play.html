@@ -4,29 +4,30 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="theme-color" content="#1d2030">
-<title>Grammar Fight</title>
+<title>Seller's Journey</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="phone" id="app">
+  <div class="topbar hidden" id="pTop"><span class="t" id="pTimer"></span><span class="s">💪 <span id="pStr">0</span></span></div>
 
   <section id="p-wait" class="center">
-    <div class="tag">Grammar Fight</div>
+    <div class="tag">Seller's Journey</div>
     <h1>Connecting…</h1>
-    <p class="muted" id="waitMsg">Waiting for the teacher to open the game.</p>
+    <p class="muted">Waiting for the teacher to open the game.</p>
   </section>
 
   <section id="p-join" class="center hidden">
-    <div class="tag">Grammar Fight</div>
+    <div class="tag">Seller's Journey</div>
     <h1>Enter your name</h1>
     <input id="nameIn" maxlength="14" placeholder="Your name" autocomplete="off">
-    <button class="wide" id="btnJoin">Join the fight 🥊</button>
+    <button class="wide" id="btnJoin">Join the game 🚀</button>
   </section>
 
   <section id="p-running" class="center hidden">
-    <h1>The fight already started</h1>
+    <h1>The final fight already started</h1>
     <p class="muted">Watch the board. You can join the next game.</p>
   </section>
 
@@ -34,22 +35,24 @@
     <div class="tag">You're in!</div>
     <h1 id="lobbyName"></h1>
     <div class="mini-wrap" style="width:100%" id="lobbyRing"></div>
-    <p class="muted">Wait for the teacher to press PLAY.</p>
+    <p class="muted">Wait for the teacher to press START.</p>
   </section>
 
-  <section id="p-training" class="hidden" style="display:flex;flex-direction:column;gap:14px">
-    <div class="topbar"><span class="t" id="trTimer">3:00</span><span class="s">💪 <span id="trStr">0</span></span></div>
-    <div class="mini-wrap" id="trRing"></div>
-    <div class="q-card" id="trQ"></div>
-    <div class="opts" id="trOpts"></div>
-    <div class="hint">Correct answer = punch the bag = +1 strength</div>
+  <section id="p-intro" class="center hidden">
+    <div class="tag" id="inTag"></div>
+    <h1 id="inTitle" style="font-size:40px"></h1>
+    <p class="muted" id="inSub" style="font-size:18px"></p>
+    <p style="font-weight:800;color:var(--orange)">Get ready…</p>
   </section>
+
+  <section id="p-round" class="hidden" style="display:flex;flex-direction:column;gap:14px"></section>
 
   <section id="p-results" class="center hidden">
-    <div class="tag">Training over</div>
+    <div class="tag" id="resTag">Round over</div>
     <h1>💪 <span id="resStr">0</span></h1>
+    <p id="resDelta" style="font-size:22px;font-weight:800;color:var(--green)"></p>
     <p id="resRank" class="muted" style="font-size:20px"></p>
-    <p class="muted">Get ready for the DEATHMATCH…</p>
+    <p class="muted">Look at the board!</p>
   </section>
 
   <section id="p-deathmatch" class="hidden" style="display:flex;flex-direction:column;gap:12px">
@@ -69,11 +72,10 @@
 
   <section id="p-over" class="center hidden">
     <div style="font-size:70px">🏆</div>
-    <div class="tag">Champion</div>
+    <div class="tag">Best seller of the class</div>
     <h1 id="overName" style="font-size:44px;color:var(--orange)"></h1>
     <p class="muted" id="overMe"></p>
   </section>
-
 </div>
 <script type="module" src="play.js"></script>
 </body>
