@@ -56,8 +56,18 @@ export const WORDS = [
   ["customer", "a person who buys something"],
   ["limited offer", "a deal only for a short time"],
   ["upsell", "to sell a more expensive or extra product"],
+  ["sale", "a time when prices are lower"],
+  ["price tag", "a small label that shows how much it costs"],
+  ["cashier", "a person who takes your money in a shop"],
+  ["brand", "the name of a company and its products"],
+  ["advertisement", "a video or picture that tries to sell something"],
+  ["delivery", "bringing a product to your home"],
+  ["shopping cart", "where you put products before you pay"],
+  ["promo code", "a secret word that gives you a discount"],
+  ["wholesale", "selling big amounts to shops, not to customers"],
+  ["loyalty card", "a card that gives you rewards for shopping"],
 ];
-export const WORD_KC = 50;
+export const WORD_KC = 20, WORD_WRONG_KC = -20;
 
 // ---------- Round 4: Max & Zoe dialogue ----------
 // lines without "o" are just shown; lines with "o" have a gap (___) and options, k = correct index
@@ -95,7 +105,7 @@ export const STREAK_EVERY = 5, STREAK_BONUS = 1; // +1 for every 5 correct in a 
 // ---------- Shop before the final ----------
 export const START_MONEY = 100, SHOP_MS = 45000;
 export const ITEMS = {
-  helmet: { name: "Helmet", icon: "🪖", price: 200, desc: "+30 % HP in the fight" },
-  energy: { name: "Energy Drink", icon: "⚡", price: 300, desc: "Only 0.5 s pause after a wrong answer" },
-  gloves: { name: "Golden Gloves", icon: "🥊", price: 450, desc: "+50 % punch damage" },
+  helmet: { name: "Helmet", icon: "🪖", price: 300, desc: "+30 % HP in the fight" },
+  energy: { name: "Energy Drink", icon: "⚡", price: 500, desc: "Only 0.5 s pause after a wrong answer" },
+  gloves: { name: "Golden Gloves", icon: "🥊", price: 800, desc: "+50 % punch damage" },
 };

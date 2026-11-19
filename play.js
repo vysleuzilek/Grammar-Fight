@@ -4,7 +4,7 @@ import {
 } from "./common.js";
 import { MiniRing, DeathRing, colorOf } from "./ring.js";
 import { QUESTIONS } from "./questions.js";
-import { ROUNDS, DEALS, BUILDS, BUILD_POINTS, WORDS, WORD_KC, DIALOG, PRODUCTS, STREAK_EVERY, STREAK_BONUS, ITEMS } from "./content.js";
+import { ROUNDS, DEALS, BUILDS, BUILD_POINTS, WORDS, WORD_KC, WORD_WRONG_KC, DIALOG, PRODUCTS, STREAK_EVERY, STREAK_BONUS, ITEMS } from "./content.js";
 
 const $ = (id) => document.getElementById(id);
 let code = null, pid = null, meta = {}, players = {}, pitches = {}, hidden = {}, myVote = null, myAns = {};
@@ -179,12 +179,14 @@ function checkBuild() {
 }
 
 // ----- Round 3: Shop Words -----
-let wSet = [], wSel = null, wLock = false, wDone = new Set();
+let wSet = [], wSel = null, wLock = false, wDone = new Set(), wDeck = [];
 function rWords() {
-  if (!setRound(`words${meta.ri}`, `<div class="tag" style="text-align:center">Tap a word, then its meaning</div><div class="match" id="wM"></div><div class="hint">Every pair = 50 Kč + 1 💪</div>`)) return;
+  if (!setRound(`words${meta.ri}`, `<div class="tag" style="text-align:center">Tap a word, then its meaning</div><div class="match" id="wM"></div><div class="hint">Correct pair = +${WORD_KC} Kč + 1 💪 · wrong pair = ${WORD_WRONG_KC} Kč</div>`)) return;
   myStreak = players[pid]?.streak || 0; nextWords();
 }
-function nextWords() { wSet = shuffle(WORDS).slice(0, 4); wDone = new Set(); wSel = null; wLock = false; drawWords(); }
+function nextWords() {
+  if (wDeck.length < 4) { const used = new Set(wDeck.map((w) => w[0])); wDeck = wDeck.concat(shuffle(WORDS.filter((w) => !used.has(w[0])))); }
+  wSet = wDeck.splice(0, 4); wDone = new Set(); wSel = null; wLock = false; drawWords(); }
 function drawWords() {
   const m = $("wM"); if (!m) return;
   const defs = m.dataset.order ? JSON.parse(m.dataset.order) : null;
@@ -203,6 +205,8 @@ function drawWords() {
       if (wDone.size === 4) { setTimeout(() => { m.dataset.order = ""; nextWords(); }, 350); } else drawWords();
     } else {
       wLock = true; b.classList.add("bad"); m.classList.add("shake"); selfResult(false, "words");
+      runTransaction(path(`players/${pid}/money`), (v) => Math.max(0, (v || 0) + WORD_WRONG_KC));
+      ptoast(`${WORD_WRONG_KC} Kč`);
       setTimeout(() => { wLock = false; wSel = null; m.classList.remove("shake"); drawWords(); }, 1500);
     }
   }));

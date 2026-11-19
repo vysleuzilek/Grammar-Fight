@@ -4,7 +4,7 @@ import {
 } from "./common.js";
 import { DeathRing, colorOf, thump } from "./ring.js";
 import {
-  ROUNDS, DEFAULT_PLAN, DEALS, DEAL_MS, REVEAL_MS, BUILD_POINTS, WORD_KC, DIALOG, GAP_MS,
+  ROUNDS, DEFAULT_PLAN, DEALS, DEAL_MS, REVEAL_MS, BUILD_POINTS, WORD_KC, WORD_WRONG_KC, DIALOG, GAP_MS,
   PITCH_WRITE_MS, PITCH_VOTE_MS, PITCH_SUBMIT_POINTS, PITCH_VOTE_POINTS, BUILD_MS, WORDS_MS,
   SPEED_POINTS, WRONG_POINTS, STREAK_EVERY, STREAK_BONUS, START_MONEY, SHOP_MS, ITEMS,
 } from "./content.js";
@@ -142,12 +142,27 @@ function renderBuilder() {
 }
 
 // ----- Round 3: Shop Words (money) -----
+const shown$ = {};
+function tweenMoney(el, id, target) {
+  const from = shown$[id] ?? target; shown$[id] = target;
+  if (from === target) { el.textContent = target.toLocaleString("cs-CZ") + " Kč"; return; }
+  const t0 = performance.now();
+  const step = (t) => { const p = Math.min(1, (t - t0) / 600); el.textContent = Math.round(from + (target - from) * (1 - Math.pow(1 - p, 3))).toLocaleString("cs-CZ") + " Kč"; if (p < 1) requestAnimationFrame(step); };
+  requestAnimationFrame(step);
+}
 function renderWords() {
-  topbar(`Round ${meta.ri + 1} · Shop Words`, "Every correct pair = 50 Kč", meta.phaseEnd - now());
-  const list = plist().sort((a, b) => (b.rs?.words || 0) - (a.rs?.words || 0) || a.name.localeCompare(b.name));
-  const max = Math.max(4, ...list.map((p) => p.rs?.words || 0));
-  setPlay("words" + list.map((p) => p.id).join(), `<div class="center-col" style="justify-content:flex-start"><div class="money">${list.map((p, i) => `<div class="mrow"><div class="muted">${i + 1}.</div><div>${esc(p.name)}</div><div class="tr"><div id="mb_${p.id}"></div></div><div class="v" id="mv_${p.id}"></div></div>`).join("")}</div></div>`);
-  for (const p of list) { const v = p.rs?.words || 0; if (!$("mb_" + p.id)) continue; $("mb_" + p.id).style.width = (v / max) * 100 + "%"; $("mv_" + p.id).textContent = (v * WORD_KC).toLocaleString("cs-CZ") + " Kč"; }
+  topbar(`Round ${meta.ri + 1} · Shop Words`, `Correct pair = +${WORD_KC} Kč · wrong pair = ${WORD_WRONG_KC} Kč`, meta.phaseEnd - now());
+  const list = plist(), ROW = 46;
+  const sorted = list.slice().sort((a, b) => (b.money || 0) - (a.money || 0) || a.name.localeCompare(b.name));
+  const max = Math.max(500, ...list.map((p) => p.money || 0));
+  setPlay("words" + list.map((p) => p.id).join(), `<div class="center-col" style="justify-content:flex-start"><div class="money" style="position:relative;height:${list.length * ROW}px">${list.map((p) => `<div class="mrow" id="mr_${p.id}" style="position:absolute;left:0;right:0;top:0;transition:top .6s cubic-bezier(.2,.9,.3,1)"><div class="muted" id="mk_${p.id}"></div><div>${esc(p.name)}</div><div class="tr"><div id="mb_${p.id}"></div></div><div class="v" id="mv_${p.id}"></div></div>`).join("")}</div></div>`);
+  sorted.forEach((p, i) => {
+    const row = $("mr_" + p.id); if (!row) return;
+    row.style.top = i * ROW + "px";
+    $("mk_" + p.id).textContent = i + 1 + ".";
+    $("mb_" + p.id).style.width = ((p.money || 0) / max) * 100 + "%";
+    tweenMoney($("mv_" + p.id), p.id, p.money || 0);
+  });
 }
 
 // ----- Round 4: Max & Zoe dialogue -----
@@ -252,7 +267,7 @@ function renderResults() {
   const html = list.map((p, i) => `<div class="board-row ${i === 0 ? "top1" : ""}" style="animation-delay:${i * 70}ms">
     <div class="rank">${i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : i + 1}</div>
     <div>${esc(p.name)}${p.rs?.[r] ? `<span class="delta" style="${p.rs[r] < 0 ? "color:var(--red)" : ""}">${p.rs[r] > 0 ? "+" : ""}${p.rs[r]}</span>` : ""}${(p.streak || 0) >= 2 ? `<span class="delta" style="color:var(--orange)">🔥 ${p.streak}</span>` : ""}<div class="bar" style="width:${((p.strength || 0) / max) * 100}%;background:${colorOf(p)}"></div></div>
-    <div class="val">💪 ${p.strength || 0}</div></div>`).join("");
+    <div class="val">💪 ${p.strength || 0}${meta.shop ? `<div style="font-size:18px;color:var(--green)">💰 ${p.money || 0} Kč</div>` : ""}</div></div>`).join("");
   if ($("board").dataset.html !== html) { $("board").innerHTML = html; $("board").dataset.html = html; }
 }
 
