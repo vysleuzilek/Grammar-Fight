@@ -86,3 +86,16 @@ export const PITCH_SUBMIT_POINTS = 1, PITCH_VOTE_POINTS = 2;
 
 // Timed self-paced rounds
 export const BUILD_MS = 180000, WORDS_MS = 120000;
+
+// ---------- Scoring extras ----------
+export const SPEED_POINTS = [3, 2, 2];   // 1st, 2nd, 3rd correct answer (rounds Deal + Max & Zoe); others +1
+export const WRONG_POINTS = -1;          // wrong answer in those two rounds
+export const STREAK_EVERY = 5, STREAK_BONUS = 1; // +1 for every 5 correct in a row
+
+// ---------- Shop before the final ----------
+export const START_MONEY = 100, SHOP_MS = 45000;
+export const ITEMS = {
+  helmet: { name: "Helmet", icon: "🪖", price: 200, desc: "+30 % HP in the fight" },
+  energy: { name: "Energy Drink", icon: "⚡", price: 300, desc: "Only 0.5 s pause after a wrong answer" },
+  gloves: { name: "Golden Gloves", icon: "🥊", price: 450, desc: "+50 % punch damage" },
+};

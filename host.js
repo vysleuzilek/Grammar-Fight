@@ -1,11 +1,12 @@
 import {
-  db, ref, onValue, set, update, get, remove, serverTimestamp, onChildAdded, query, limitToLast, increment,
+  db, ref, onValue, set, update, get, remove, push, serverTimestamp, onChildAdded, query, limitToLast, increment,
   now, esc, fmtTime, playerList, computeHp,
 } from "./common.js";
 import { DeathRing, colorOf, thump } from "./ring.js";
 import {
   ROUNDS, DEFAULT_PLAN, DEALS, DEAL_MS, REVEAL_MS, BUILD_POINTS, WORD_KC, DIALOG, GAP_MS,
   PITCH_WRITE_MS, PITCH_VOTE_MS, PITCH_SUBMIT_POINTS, PITCH_VOTE_POINTS, BUILD_MS, WORDS_MS,
+  SPEED_POINTS, WRONG_POINTS, STREAK_EVERY, STREAK_BONUS, START_MONEY, SHOP_MS, ITEMS,
 } from "./content.js";
 
 const $ = (id) => document.getElementById(id);
@@ -53,7 +54,7 @@ function listen() {
 // ---------- helpers ----------
 const plist = () => playerList(players);
 const pcount = () => Object.keys(players).length;
-function show(id) { for (const s of ["lobby", "intro", "play", "results", "deathmatch"]) $("s-" + s).classList.toggle("hidden", s !== id); }
+function show(id) { for (const s of ["lobby", "intro", "play", "results", "shop", "deathmatch"]) $("s-" + s).classList.toggle("hidden", s !== id); }
 function steps() {
   const plan = meta.plan || [];
   $("steps").innerHTML = plan.map((r, i) => `<span class="${i < meta.ri ? "done" : i === meta.ri ? "on" : ""}">${i + 1}</span>`).join("") + `<span class="${meta.state === "deathmatch" ? "on" : ""}">🥊</span>`;
@@ -80,9 +81,12 @@ function render() {
     show("play");
     const fn = { deal: renderDeal, builder: renderBuilder, words: renderWords, dialog: renderDialog, pitch: renderPitch }[rid()];
     fn && fn(r);
+    renderSide();
   } else if (st === "results") {
     show("results"); topbar(`After round ${meta.ri + 1}`, "Results", null); $("topbar").classList.add("hidden");
     renderResults();
+  } else if (st === "shop") {
+    $("topbar").classList.add("hidden"); show("shop"); renderShop();
   } else if (st === "deathmatch" || st === "over") {
     $("topbar").classList.add("hidden"); show("deathmatch"); renderDeathmatch(); if (st === "over") $("winnerName").textContent = players[meta.winner]?.name || "Draw!";
   }
@@ -203,17 +207,51 @@ function pitchOrder() {
 }
 function voteCounts() { const c = {}; for (const [v, t] of Object.entries(votes)) if (players[v] && pitches[t] && !hidden[t]) c[t] = (c[t] || 0) + 1; return c; }
 
+// ----- Sidebar: live top 5 -----
+function renderSide() {
+  const list = plist().sort((a, b) => (b.strength || 0) - (a.strength || 0)).slice(0, 5);
+  const html = `<div class="tag">Leaderboard</div>` + list.map((p, i) => `<div class="srow ${i === 0 ? "top" : ""}"><span class="muted">${i + 1}.</span><span>${esc(p.name)}${(p.streak || 0) >= 2 ? `<span class="fire">🔥${p.streak}</span>` : ""}</span><span class="v">💪 ${p.strength || 0}</span></div>`).join("");
+  if ($("side").dataset.h !== html) { $("side").dataset.h = html; $("side").innerHTML = html; }
+}
+
+// ----- Shop -----
+function renderShop() {
+  $("shopTimer").textContent = fmtTime((meta.phaseEnd || 0) - now());
+  if (!$("shopItems").dataset.done) {
+    $("shopItems").dataset.done = 1;
+    $("shopItems").innerHTML = Object.values(ITEMS).map((it) => `<div class="sitem"><div class="ic">${it.icon}</div><div><h3>${it.name}</h3><p>${it.desc}</p></div><div class="pr">${it.price} Kč</div></div>`).join("");
+  }
+  const list = plist().sort((a, b) => (b.strength || 0) - (a.strength || 0));
+  const html = list.map((p) => `<div class="scard"><div class="nm">${esc(p.name)} <span class="muted" style="font-size:16px">💪 ${p.strength || 0}</span></div><div class="mn">💰 ${p.money || 0} Kč</div><div class="its">${Object.keys(ITEMS).filter((k) => p.items?.[k]).map((k) => ITEMS[k].icon).join("") || '<span class="muted" style="font-size:16px;letter-spacing:0">nothing yet</span>'}</div></div>`).join("");
+  if ($("shopGrid").dataset.h !== html) { $("shopGrid").dataset.h = html; $("shopGrid").innerHTML = html; }
+}
+function toast(text, cls = "") {
+  const d = document.createElement("div"); d.className = "toast " + cls; d.textContent = text;
+  $("toasts").appendChild(d); setTimeout(() => d.remove(), 3100);
+}
+let ac2;
+function kaching() {
+  try {
+    ac2 = ac2 || new (window.AudioContext || window.webkitAudioContext)();
+    [2100, 2650, 3300].forEach((f, i) => {
+      const o = ac2.createOscillator(), g = ac2.createGain(); o.frequency.value = f;
+      g.gain.setValueAtTime(0.12, ac2.currentTime + i * 0.04); g.gain.exponentialRampToValueAtTime(0.001, ac2.currentTime + 0.6 + i * 0.04);
+      o.connect(g).connect(ac2.destination); o.start(ac2.currentTime + i * 0.04); o.stop(ac2.currentTime + 0.7);
+    });
+  } catch (e) {}
+}
+
 // ----- Results -----
 function renderResults() {
   const r = rid(), list = plist().sort((a, b) => (b.strength || 0) - (a.strength || 0));
   const max = Math.max(1, ...list.map((p) => p.strength || 0));
   const last = meta.ri >= (meta.plan.length - 1);
   $("resTag").textContent = `After round ${meta.ri + 1}: ${ROUNDS[r]?.title || ""}`;
-  $("btnNext").textContent = last ? "🥊 FINAL: DEATHMATCH" : `Round ${meta.ri + 2}: ${ROUNDS[meta.plan[meta.ri + 1]].title} ▶`;
+  $("btnNext").textContent = last ? (meta.shop ? "🛒 OPEN THE SHOP" : "🥊 FINAL: DEATHMATCH") : `Round ${meta.ri + 2}: ${ROUNDS[meta.plan[meta.ri + 1]].title} ▶`;
   $("hpInfo").textContent = last ? `Everyone will start with ${computeHp(players)} HP · 1 punch = your strength` : "";
   const html = list.map((p, i) => `<div class="board-row ${i === 0 ? "top1" : ""}" style="animation-delay:${i * 70}ms">
     <div class="rank">${i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : i + 1}</div>
-    <div>${esc(p.name)}${p.rs?.[r] ? `<span class="delta">+${p.rs[r]}</span>` : ""}<div class="bar" style="width:${((p.strength || 0) / max) * 100}%;background:${colorOf(p)}"></div></div>
+    <div>${esc(p.name)}${p.rs?.[r] ? `<span class="delta" style="${p.rs[r] < 0 ? "color:var(--red)" : ""}">${p.rs[r] > 0 ? "+" : ""}${p.rs[r]}</span>` : ""}${(p.streak || 0) >= 2 ? `<span class="delta" style="color:var(--orange)">🔥 ${p.streak}</span>` : ""}<div class="bar" style="width:${((p.strength || 0) / max) * 100}%;background:${colorOf(p)}"></div></div>
     <div class="val">💪 ${p.strength || 0}</div></div>`).join("");
   if ($("board").dataset.html !== html) { $("board").innerHTML = html; $("board").dataset.html = html; }
 }
@@ -237,6 +275,8 @@ function onEvent(key, ev) {
   if (!ev || seen.has(key)) return; seen.add(key);
   if ((ev.t || 0) < (meta.phaseStart || 0) - 1000) return;
   if (ev.type === "build" || ev.type === "pair") thump(false);
+  if (ev.type === "streak") toast(`🔥 ${players[ev.from]?.name || "?"} is on fire! ${ev.n} in a row`);
+  if (ev.type === "buy") { kaching(); toast(`${players[ev.from]?.name || "?"} bought ${ITEMS[ev.item]?.icon || ""} ${ITEMS[ev.item]?.name || ""}!`, "buy"); }
   if ((ev.type === "hit" || ev.type === "miss") && dmRing) {
     const missed = ev.type === "miss";
     dmRing.attack(ev.from, ev.to, ev.dmg, missed, ev.ko);
@@ -267,8 +307,22 @@ async function reveal() {
   const k = `rev${meta.ri}_${meta.q}`; if (busy.has(k)) return; busy.add(k);
   const r = rid(), q = meta.q ?? 0, a = qAns(q);
   const right = r === "deal" ? DEALS[q].ok : DIALOG[GAPS[q]].k;
-  const winners = Object.entries(a).filter(([, v]) => v.a === right).map(([id]) => id);
-  await award(winners, 1, r);
+  const order = Object.entries(a).filter(([, v]) => v.a === right).sort((x, y) => (x[1].t || 0) - (y[1].t || 0)).map(([id]) => id);
+  const u = {}, streakEvents = [];
+  for (const p of plist()) {
+    const v = a[p.id];
+    let pts = 0, rank = 0, st = p.streak || 0, bonus = 0;
+    if (v && v.a === right) { rank = order.indexOf(p.id) + 1; pts = SPEED_POINTS[rank - 1] ?? 1; st += 1; if (st % STREAK_EVERY === 0) { bonus = STREAK_BONUS; streakEvents.push([p.id, st]); } }
+    else { if (v) pts = WRONG_POINTS; st = 0; }
+    const old = p.strength || 0, ns = Math.max(0, old + pts + bonus), d = ns - old;
+    u[`players/${p.id}/strength`] = ns;
+    u[`players/${p.id}/rs/${r}`] = (p.rs?.[r] || 0) + d;
+    u[`players/${p.id}/streak`] = st;
+    u[`players/${p.id}/bestStreak`] = Math.max(p.bestStreak || 0, st);
+    u[`players/${p.id}/last`] = { k: `${meta.ri}_${q}`, pts: d, rank, bonus, ok: v ? v.a === right : null };
+  }
+  await update(path(), u);
+  for (const [id, n] of streakEvents) push(path("events"), { type: "streak", from: id, n, t: serverTimestamp() });
   await update(path("meta"), { reveal: true, revealEnd: now() + REVEAL_MS });
 }
 async function nextQ() {
@@ -298,6 +352,11 @@ async function endRound() {
 }
 
 setInterval(() => {
+  if (meta.state === "shop") {
+    const left = (meta.phaseEnd || 0) - now(); $("shopTimer").textContent = fmtTime(left);
+    if (left <= 0) startDeathmatch();
+    return;
+  }
   if (meta.state !== "play") return;
   const r = rid(), t = now();
   if (r === "deal" || r === "dialog") {
@@ -321,13 +380,17 @@ setInterval(() => {
 
 // ---------- buttons ----------
 $("btnStart").onclick = async () => {
-  const plan = [...$("roundPick").querySelectorAll("input:checked")].map((i) => i.value);
+  let plan = [...$("roundPick").querySelectorAll("input:checked")].map((i) => i.value);
+  const shopOn = $("shopOn").checked;
+  if (shopOn && !plan.includes("words")) plan = DEFAULT_PLAN.filter((k) => plan.includes(k) || k === "words");
   localStorage.setItem("plan", JSON.stringify(plan));
   if (!pcount() && !confirm("No players yet. Start anyway?")) return;
   thump(false);
   const u = { events: null, ans: null, pitches: null, votes: null, hidden: null };
-  for (const id of Object.keys(players)) Object.assign(u, { [`players/${id}/strength`]: 0, [`players/${id}/rs`]: null, [`players/${id}/alive`]: true, [`players/${id}/hp`]: 0, [`players/${id}/maxHp`]: 0, [`players/${id}/kills`]: 0 });
+  for (const id of Object.keys(players)) Object.assign(u, { [`players/${id}/strength`]: 0, [`players/${id}/rs`]: null, [`players/${id}/alive`]: true, [`players/${id}/hp`]: 0, [`players/${id}/maxHp`]: 0, [`players/${id}/kills`]: 0,
+    [`players/${id}/streak`]: 0, [`players/${id}/bestStreak`]: 0, [`players/${id}/money`]: START_MONEY, [`players/${id}/items`]: null, [`players/${id}/last`]: null });
   busy.clear();
+  u["meta/shop"] = shopOn;
   if (plan.length) Object.assign(u, { "meta/state": "intro", "meta/plan": plan, "meta/ri": 0, "meta/winner": null });
   await update(path(), u);
   if (!plan.length) startDeathmatch();
@@ -340,17 +403,19 @@ $("btnSkip").onclick = () => {
   else endRound();
 };
 $("btnNext").onclick = () => {
-  if (meta.ri >= meta.plan.length - 1) startDeathmatch();
+  if (meta.ri >= meta.plan.length - 1) { if (meta.shop) { kaching(); update(path("meta"), { state: "shop", phaseStart: now(), phaseEnd: now() + SHOP_MS }); } else startDeathmatch(); }
   else update(path("meta"), { state: "intro", ri: meta.ri + 1, q: 0, reveal: false });
 };
 async function startDeathmatch() {
+  if (busy.has("dmstart")) return; busy.add("dmstart");
   thump(true);
   const hp = computeHp(players), u = { events: null };
-  for (const id of Object.keys(players)) Object.assign(u, { [`players/${id}/hp`]: hp, [`players/${id}/maxHp`]: hp, [`players/${id}/alive`]: true, [`players/${id}/kills`]: 0 });
+  for (const [id, p] of Object.entries(players)) { const h = Math.round(hp * (p.items?.helmet ? 1.3 : 1)); Object.assign(u, { [`players/${id}/hp`]: h, [`players/${id}/maxHp`]: h, [`players/${id}/alive`]: true, [`players/${id}/kills`]: 0 }); }
   Object.assign(u, { "meta/state": "deathmatch", "meta/phaseStart": now(), "meta/hp": hp });
   busy.delete("dmend");
   await update(path(), u);
 }
+$("btnShopEnd").onclick = () => startDeathmatch();
 $("btnEndDM").onclick = () => {
   const alive = plist().filter((p) => p.alive !== false).sort((a, b) => (b.hp || 0) - (a.hp || 0));
   busy.add("dmend"); update(path("meta"), { state: "over", winner: alive[0]?.id || null });

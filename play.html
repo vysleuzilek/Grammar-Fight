@@ -12,6 +12,7 @@
 <body>
 <div class="phone" id="app">
   <div class="topbar hidden" id="pTop"><span class="t" id="pTimer"></span><span class="s">💪 <span id="pStr">0</span></span></div>
+  <div class="rankline hidden" id="pRank"></div>
 
   <section id="p-wait" class="center">
     <div class="tag">Seller's Journey</div>
@@ -46,6 +47,13 @@
   </section>
 
   <section id="p-round" class="hidden" style="display:flex;flex-direction:column;gap:14px"></section>
+
+  <section id="p-shop" class="hidden" style="display:flex;flex-direction:column;gap:12px">
+    <div class="tag" style="text-align:center">🛒 Shop · before the final fight</div>
+    <div class="cash">💰 <span id="shMoney">0</span> Kč</div>
+    <div id="shItems" style="display:flex;flex-direction:column;gap:10px"></div>
+    <div class="hint" id="shTime"></div>
+  </section>
 
   <section id="p-results" class="center hidden">
     <div class="tag" id="resTag">Round over</div>

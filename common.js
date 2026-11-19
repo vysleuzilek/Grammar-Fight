@@ -51,4 +51,13 @@ export function computeHp(players) {
   const avg = list.reduce((s, p) => s + (p.strength || 0), 0) / list.length;
   return Math.max(20, Math.round(avg * 5));
 }
-export const damageOf = (p) => Math.max(1, p?.strength || 0);
+export const damageOf = (p) => Math.max(1, Math.round((p?.strength || 0) * (p?.items?.gloves ? 1.5 : 1)));
+
+// rank info for one player: position, and how far behind the player directly above
+export function rankInfo(players, id) {
+  const list = playerList(players).sort((a, b) => (b.strength || 0) - (a.strength || 0));
+  const i = list.findIndex((p) => p.id === id);
+  if (i < 0) return null;
+  const me = list[i], above = list[i - 1];
+  return { pos: i + 1, of: list.length, gap: above ? (above.strength || 0) - (me.strength || 0) : 0, aboveName: above?.name || null };
+}

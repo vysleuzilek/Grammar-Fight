@@ -1,10 +1,10 @@
 import {
   db, ref, onValue, set, update, push, runTransaction, increment, serverTimestamp,
-  onChildAdded, query, limitToLast, now, esc, fmtTime, shuffle, playerList, damageOf, MISS_LOCK_MS,
+  onChildAdded, query, limitToLast, now, esc, fmtTime, shuffle, playerList, damageOf, MISS_LOCK_MS, rankInfo,
 } from "./common.js";
 import { MiniRing, DeathRing, colorOf } from "./ring.js";
 import { QUESTIONS } from "./questions.js";
-import { ROUNDS, DEALS, BUILDS, BUILD_POINTS, WORDS, DIALOG, PRODUCTS } from "./content.js";
+import { ROUNDS, DEALS, BUILDS, BUILD_POINTS, WORDS, WORD_KC, DIALOG, PRODUCTS, STREAK_EVERY, STREAK_BONUS, ITEMS } from "./content.js";
 
 const $ = (id) => document.getElementById(id);
 let code = null, pid = null, meta = {}, players = {}, pitches = {}, hidden = {}, myVote = null, myAns = {};
@@ -36,8 +36,9 @@ function switchGame(c) {
 }
 function screen(id) {
   if (screenNow === id) return; screenNow = id;
-  for (const s of ["wait", "join", "running", "lobby", "intro", "round", "results", "deathmatch", "over"]) $("p-" + s).classList.toggle("hidden", s !== id);
+  for (const s of ["wait", "join", "running", "lobby", "intro", "round", "results", "shop", "deathmatch", "over"]) $("p-" + s).classList.toggle("hidden", s !== id);
   $("pTop").classList.toggle("hidden", id !== "round");
+  $("pRank").classList.toggle("hidden", !["intro", "round", "results", "shop"].includes(id));
 }
 
 // ---------- render ----------
@@ -47,6 +48,9 @@ function render() {
   const me = players[pid];
   if (!me) { screen(st === "deathmatch" || st === "over" ? "running" : "join"); return; }
   $("pStr").textContent = me.strength || 0;
+  if (!selfPaced()) myStreak = me.streak || 0;
+  const ri = rankInfo(players, pid);
+  if (ri) $("pRank").innerHTML = `<span>${ri.pos === 1 ? "👑 <b>#1</b> · you're leading!" : `<b>#${ri.pos}</b>/${ri.of} · ${ri.gap > 0 ? `${ri.gap} 💪 to <b>${esc(ri.aboveName)}</b>` : `same as <b>${esc(ri.aboveName)}</b>`}`}</span><span class="fire">${myStreak >= 2 ? `🔥 ${myStreak}` : ""}</span>`;
   if (st === "lobby") {
     screen("lobby"); $("lobbyName").textContent = me.name;
     if (!lobbyRing) lobbyRing = new MiniRing($("lobbyRing"), colorOf(me));
@@ -65,6 +69,8 @@ function render() {
     const d = me.rs?.[rid()] || 0;
     $("resDelta").textContent = d ? `+${d} in this round` : "";
     $("resRank").textContent = `You are #${list.findIndex((p) => p.id === pid) + 1} of ${list.length}`;
+  } else if (st === "shop") {
+    screen("shop"); renderShop(me);
   } else if (st === "deathmatch") {
     if (screenNow !== "deathmatch") { screen("deathmatch"); deck = []; nextDmQ(); lastHp = null; }
     renderDeathmatch(me);
@@ -77,15 +83,38 @@ function render() {
 }
 function setRound(key, html) { if (roundKey === key) return false; roundKey = key; $("p-round").innerHTML = html; return true; }
 const ansKey = (q) => `${meta.ri}_${q}`;
-function sendAns(q, a) { myAns[ansKey(q)] = a; set(path(`ans/${meta.ri}/${q}/${pid}`), { a }); }
+function sendAns(q, a) { myAns[ansKey(q)] = a; set(path(`ans/${meta.ri}/${q}/${pid}`), { a, t: serverTimestamp() }); }
+const selfPaced = () => meta.state === "play" && (rid() === "builder" || rid() === "words");
+let myStreak = 0;
+function ptoast(t) { const d = document.createElement("div"); d.className = "ptoast"; d.textContent = t; document.body.appendChild(d); setTimeout(() => d.remove(), 2500); }
+function selfResult(ok, r) {
+  myStreak = ok ? myStreak + 1 : 0;
+  const me = players[pid] || {};
+  const u = { streak: myStreak, bestStreak: Math.max(me.bestStreak || 0, myStreak) };
+  if (ok && myStreak % STREAK_EVERY === 0) {
+    u.strength = increment(STREAK_BONUS); u[`rs/${r}`] = increment(STREAK_BONUS);
+    push(path("events"), { type: "streak", from: pid, n: myStreak, t: serverTimestamp() });
+    ptoast(`🔥 ${myStreak} in a row! +${STREAK_BONUS} 💪`);
+  }
+  update(path(`players/${pid}`), u);
+  render();
+}
+function lastFb(me, key) {
+  const L = me.last && me.last.k === key ? me.last : null;
+  if (!L) return `<div class="fb wait">Checking…</div>`;
+  if (L.ok === null) return `<div class="fb wait">Too slow! 🔥 streak lost</div>`;
+  if (!L.ok) return `<div class="fb bad">Wrong! ${L.pts} 💪${L.pts === 0 ? "" : ""}<br><small>🔥 streak lost</small></div>`;
+  const medal = L.rank === 1 ? "🥇 1st!" : L.rank === 2 ? "🥈 2nd!" : L.rank === 3 ? "🥉 3rd!" : "Correct!";
+  return `<div class="fb ok">${medal} +${L.pts} 💪${L.bonus ? `<br><small>🔥 streak bonus included</small>` : ""}</div>`;
+}
 
 // ----- Round 1: Deal or No Deal -----
 function rDeal() {
   const q = meta.q ?? 0, d = DEALS[q], mine = myAns[ansKey(q)];
   if (meta.reveal) {
-    const ok = mine === d.ok;
-    setRound(`deal${q}r`, `<div class="pair" style="font-size:22px;font-weight:800">${esc(d.s)}</div>
-      <div class="fb ${mine === undefined ? "wait" : ok ? "ok" : "bad"}">${mine === undefined ? "Too slow!" : ok ? "Correct! +1 💪" : "Wrong!"}</div>
+    const me = players[pid] || {}, k = ansKey(q), has = me.last?.k === k ? 1 : 0;
+    setRound(`deal${q}r${has}`, `<div class="pair" style="font-size:22px;font-weight:800">${esc(d.s)}</div>
+      ${lastFb(me, k)}
       <div class="pair">${d.ok ? "✓ This sentence is correct." : `✗ Correct version:<br><b>${esc(d.fix)}</b>`}</div>`);
     return;
   }
@@ -115,7 +144,7 @@ function rDeal() {
 let bDeck = [], bItem = null, bAns = [], bLock = false;
 function rBuilder() {
   if (!setRound(`builder${meta.ri}`, `<div id="bWrap" style="display:flex;flex-direction:column;gap:14px"></div>`)) return;
-  bDeck = shuffle(BUILDS); nextBuild();
+  myStreak = players[pid]?.streak || 0; bDeck = shuffle(BUILDS); nextBuild();
 }
 function nextBuild() {
   if (!bDeck.length) bDeck = shuffle(BUILDS);
@@ -140,9 +169,10 @@ function checkBuild() {
     bLock = true; a.style.borderColor = "var(--green)"; a.style.background = "#244a37";
     update(path(`players/${pid}`), { strength: increment(BUILD_POINTS), [`rs/builder`]: increment(BUILD_POINTS) });
     push(path("events"), { type: "build", from: pid, t: serverTimestamp() });
+    selfResult(true, "builder");
     setTimeout(nextBuild, 700);
   } else {
-    bLock = true; a.classList.add("shake"); a.style.borderColor = "var(--red)";
+    bLock = true; a.classList.add("shake"); a.style.borderColor = "var(--red)"; selfResult(false, "builder");
     a.insertAdjacentHTML("afterend", `<div class="fb bad" id="bMsg">Not quite! 2s…<br><small>${esc(bItem.t.join(" "))}</small></div>`);
     setTimeout(() => { bAns = []; bLock = false; drawBuild(); }, MISS_LOCK_MS + 500);
   }
@@ -152,7 +182,7 @@ function checkBuild() {
 let wSet = [], wSel = null, wLock = false, wDone = new Set();
 function rWords() {
   if (!setRound(`words${meta.ri}`, `<div class="tag" style="text-align:center">Tap a word, then its meaning</div><div class="match" id="wM"></div><div class="hint">Every pair = 50 Kč + 1 💪</div>`)) return;
-  nextWords();
+  myStreak = players[pid]?.streak || 0; nextWords();
 }
 function nextWords() { wSet = shuffle(WORDS).slice(0, 4); wDone = new Set(); wSel = null; wLock = false; drawWords(); }
 function drawWords() {
@@ -167,11 +197,12 @@ function drawWords() {
     const def = order[+b.dataset.d], ok = wSet.find((w) => w[0] === wSel)[1] === def;
     if (ok) {
       wDone.add(wSel); wSel = null;
-      update(path(`players/${pid}`), { strength: increment(1), [`rs/words`]: increment(1) });
+      update(path(`players/${pid}`), { strength: increment(1), [`rs/words`]: increment(1), money: increment(WORD_KC) });
+      selfResult(true, "words");
       push(path("events"), { type: "pair", from: pid, t: serverTimestamp() });
       if (wDone.size === 4) { setTimeout(() => { m.dataset.order = ""; nextWords(); }, 350); } else drawWords();
     } else {
-      wLock = true; b.classList.add("bad"); m.classList.add("shake");
+      wLock = true; b.classList.add("bad"); m.classList.add("shake"); selfResult(false, "words");
       setTimeout(() => { wLock = false; wSel = null; m.classList.remove("shake"); drawWords(); }, 1500);
     }
   }));
@@ -184,7 +215,8 @@ function rDialog() {
   const ctx = prev && !prev.o ? `<div class="pair" style="text-align:left"><b>${prev.who === "max" ? "Max" : "Zoe"}:</b> ${esc(prev.s)}</div>` : "";
   const line = (fill) => `<div class="pair" style="text-align:left;font-size:20px;font-weight:700;background:var(--light);color:var(--bg)"><b>${d.who === "max" ? "Max" : "Zoe"}:</b> ${esc(d.s).replace("___", `<span style="color:#1F6F62;border-bottom:3px solid #F2B33D">${fill}</span>`)}</div>`;
   if (meta.reveal) {
-    setRound(`dlg${g}r`, `${ctx}${line(esc(d.o[d.k]))}<div class="fb ${mine === undefined ? "wait" : mine === d.k ? "ok" : "bad"}">${mine === undefined ? "Too slow!" : mine === d.k ? "Correct! +1 💪" : `Wrong! It's “${esc(d.o[d.k])}”`}</div>`);
+    const me = players[pid] || {}, k = ansKey(g), has = me.last?.k === k ? 1 : 0;
+    setRound(`dlg${g}r${has}`, `${ctx}${line(esc(d.o[d.k]))}${lastFb(me, k)}`);
     return;
   }
   if (mine !== undefined) { setRound(`dlg${g}l`, `${ctx}${line("___")}<div class="fb wait">Locked in: ${esc(d.o[mine])}<br><small style="font-weight:600">Wait for the answer…</small></div>`); return; }
@@ -220,14 +252,38 @@ function rPitch() {
   }
 }
 
+// ---------- SHOP ----------
+function renderShop(me) {
+  $("shMoney").textContent = me.money || 0;
+  const key = JSON.stringify([me.money, me.items]);
+  if ($("shItems").dataset.k === key) return; $("shItems").dataset.k = key;
+  $("shItems").innerHTML = Object.entries(ITEMS).map(([k, it]) => {
+    const own = me.items?.[k], can = (me.money || 0) >= it.price;
+    return `<div class="shopcard ${own ? "owned" : ""}"><div class="ic">${it.icon}</div><div class="tx"><b>${it.name}</b><div>${it.desc}</div></div>
+      ${own ? `<span style="color:var(--green);font-weight:900">✓ yours</span>` : `<button data-buy="${k}" ${can ? "" : "disabled"}>${it.price} Kč</button>`}</div>`;
+  }).join("");
+  $("shItems").querySelectorAll("[data-buy]").forEach((b) => (b.onclick = () => buy(b.dataset.buy)));
+}
+async function buy(k) {
+  const it = ITEMS[k];
+  const res = await runTransaction(path(`players/${pid}`), (p) => {
+    if (p === null) return p;
+    if (p.items?.[k] || (p.money || 0) < it.price) return;
+    p.money = (p.money || 0) - it.price; p.items = { ...(p.items || {}), [k]: true }; return p;
+  });
+  if (res.committed) { push(path("events"), { type: "buy", from: pid, item: k, t: serverTimestamp() }); ptoast(`${it.icon} ${it.name} bought!`); if (navigator.vibrate) navigator.vibrate(60); }
+}
+
 // ---------- timer ----------
 setInterval(() => {
+  if (meta.state === "shop") $("shTime").textContent = `The fight starts in ${fmtTime((meta.phaseEnd || 0) - now())}`;
   if (meta.state !== "play") return;
   const r = rid();
   let left = null;
   if ((r === "deal" || r === "dialog") && !meta.reveal) left = meta.qEnd - now();
   if (r === "builder" || r === "words" || (r === "pitch" && meta.pphase !== "done")) left = meta.phaseEnd - now();
   $("pTimer").textContent = left == null ? "" : fmtTime(left);
+  if (meta.state === "shop") $("shTime").textContent = `The fight starts in ${fmtTime((meta.phaseEnd || 0) - now())}`;
   if (left != null && left <= 0) { if (r === "builder") bLock = true; if (r === "words") wLock = true; }
 }, 250);
 
@@ -266,8 +322,8 @@ async function dmAnswer(q, o, btn) {
     btn.classList.add("bad"); [...box.children].forEach((b) => { if (b.textContent === q.a) b.classList.add("ok"); });
     if (target) push(path("events"), { type: "miss", from: pid, to: target, t: serverTimestamp() });
     const lock = document.createElement("div"); lock.className = "lock"; box.appendChild(lock);
-    const end = Date.now() + MISS_LOCK_MS;
-    const tick = () => { const left = end - Date.now(); if (left <= 0) { nextDmQ(); return; } lock.textContent = `Miss! ${Math.ceil(left / 1000)}s`; setTimeout(tick, 100); };
+    const end = Date.now() + (players[pid]?.items?.energy ? 500 : MISS_LOCK_MS);
+    const tick = () => { const left = end - Date.now(); if (left <= 0) { nextDmQ(); return; } lock.textContent = players[pid]?.items?.energy ? "⚡ Miss!" : `Miss! ${Math.ceil(left / 1000)}s`; setTimeout(tick, 100); };
     tick();
   }
 }

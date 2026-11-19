@@ -30,6 +30,7 @@
         <div class="chips" id="chips"></div>
         <div style="margin-top:auto;display:flex;flex-direction:column;gap:14px">
           <div class="rounds-pick" id="roundPick"></div>
+          <div class="rounds-pick"><label style="background:var(--card2)"><input type="checkbox" id="shopOn" checked>🛒 Shop before the final (needs round 3)</label></div>
           <div class="controls">
             <button id="btnStart">▶ START</button>
             <button class="ghost" id="btnNew">New game</button>
@@ -48,8 +49,19 @@
   </section>
 
   <!-- ROUND PLAY -->
-  <section id="s-play" class="hidden" style="flex:1;display:flex;flex-direction:column">
-    <div id="play" style="flex:1;display:flex;flex-direction:column"></div>
+  <section id="s-play" class="hidden" style="flex:1;display:flex;gap:26px">
+    <div id="play" style="flex:1;display:flex;flex-direction:column;min-width:0"></div>
+    <aside class="side" id="side"></aside>
+  </section>
+
+  <!-- SHOP -->
+  <section id="s-shop" class="hidden" style="flex:1;display:flex;flex-direction:column;gap:22px">
+    <header>
+      <div><div class="tag">Before the final</div><h1>🛒 The Shop is open! Spend your money on your phone</h1></div>
+      <div style="display:flex;align-items:center;gap:22px"><div class="timer" id="shopTimer"></div><button id="btnShopEnd">🥊 Start the fight</button></div>
+    </header>
+    <div class="shopitems" id="shopItems"></div>
+    <div class="shopgrid" id="shopGrid"></div>
   </section>
 
   <!-- RESULTS -->
@@ -73,6 +85,7 @@
     </div>
   </section>
 
+  <div id="toasts" class="toasts"></div>
   <div id="winner" class="winner hidden">
     <div class="belt">🏆</div>
     <div class="tag">Best seller of the class</div>

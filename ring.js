@@ -104,6 +104,9 @@ export class DeathRing {
       const flip = x > 500 ? -1 : 1;
       const scaled = el("g", { transform: `scale(${flip * s} ${s})` }, shake);
       const b = boxer(scaled, colorOf(p));
+      const helmet = el("path", { d: "M-15 -20 Q-14 -40 0 -40 Q14 -40 15 -20 Q0 -27 -15 -20 Z", fill: "#F2B33D", stroke: "#14161f", "stroke-width": 2.5, opacity: 0 }, b);
+      const bolt = el("text", { x: -38, y: -20, "font-size": 22, opacity: 0 }, scaled); bolt.textContent = "⚡";
+      const glove = b.querySelector(".glove-front");
       const name = el("text", { x: 0, y: 64 * s, "text-anchor": "middle", class: "f-name", "font-size": this.big ? (list.length > 8 ? 34 : 44) : (list.length > 12 ? 18 : 22) }, outer);
       name.textContent = p.id === this.meId ? `${p.name} (you)` : p.name;
       const bw = this.big ? 150 : 80, bh = this.big ? 18 : 10;
@@ -115,7 +118,7 @@ export class DeathRing {
         outer.style.cursor = "pointer";
         hit.addEventListener("click", () => this.onSelect(p.id));
       }
-      this.nodes[p.id] = { outer, sel, shake, b, hp, str, name, bw };
+      this.nodes[p.id] = { outer, sel, shake, b, hp, str, name, bw, helmet, bolt, glove };
     }
     this.setSelected(this.selected);
   }
@@ -130,8 +133,12 @@ export class DeathRing {
       const r = hp / max;
       n.hp.setAttribute("width", String(n.bw * r));
       n.hp.setAttribute("fill", r > 0.5 ? "#5cc98a" : r > 0.25 ? "#e9c46a" : "#f06a5a");
-      n.str.textContent = `STR ${p.strength || 0}`;
+      n.str.textContent = `STR ${p.strength || 0}${p.items?.gloves ? " ×1.5" : ""}`;
       n.outer.classList.toggle("ko", p.alive === false);
+      const it = p.items || {};
+      n.helmet.setAttribute("opacity", it.helmet ? 1 : 0);
+      n.bolt.setAttribute("opacity", it.energy ? 1 : 0);
+      n.glove.setAttribute("fill", it.gloves ? "#F2B33D" : "#e63946");
     }
   }
 
